@@ -17,7 +17,8 @@
 #define SAMPLE_RATE_MAX               10
 
 void set_sample_rate(int sr);
-int setI2SFreq(int freq);
+/// int setI2SFreq(int freq);
+void setI2SFreq(int freq);
 
 // Set by set_sample_rate
 extern unsigned int sample_rate_real;

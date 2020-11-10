@@ -176,7 +176,7 @@ https://forum.pjrc.com/threads/40102
 #include <SPI.h>
 #include <Metro.h>
 
-
+#include <utility/imxrt_hw.h>
 // When grounded, this adds a SIDETONE_FREQUENCY
 // tone to the audio output so that you can hear
 // what the WWVB (or DCF77) signal should sound
