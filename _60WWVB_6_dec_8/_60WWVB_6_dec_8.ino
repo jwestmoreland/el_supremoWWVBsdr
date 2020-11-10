@@ -104,13 +104,6 @@ https://forum.pjrc.com/threads/40102
     https://github.com/DD4WH/Teensy-DCF77/wiki
 */
 
-#ifdef __MK66FX1M0__
-// T3.6 code
-#else
-// T4.1 code
-#endif
-
-
 #define VERSION     " v0.6_dec_7"
 #include "AudioDecimateByN.h"
 #include "wwvb.h"
@@ -153,7 +146,14 @@ https://forum.pjrc.com/threads/40102
 #include <ILI9341_t3.h>
 #include "font_Arial.h"
 #endif
+
+#ifdef __MK66FX1M0__
+// T3.6 code
+#else
+// T4.1 code
 #include <utility/imxrt_hw.h>
+#endif
+
 // When grounded, this adds a 600Hz tone to the
 // audio output so that you can hear what the
 // WWVB (or DCF77) signal should sound like
@@ -202,11 +202,11 @@ AudioSynthWaveformSine   sine600;        //xy=1086,516
 AudioFilterBiquad        biquad3;
 // 3800Hz lopass at 48kHz in to x6 decimator
 AudioFilterBiquad        biquad4;
-#endif
+
 
 AudioDecimateByN         decimator6;      //xy=1281.88330078125,397.8833312988281
 AudioDecimateByN         decimator4;      //xy=1281.88330078125,397.8833312988281
-
+#endif
 #ifdef USE_SIDETONE
 AudioMixer4              mixer_output;   //xy=1284,497
 AudioRecordQueue         queue1;         //xy=1437,398
@@ -553,8 +553,13 @@ void set_sample_rate(int sr)
     break;
   }
   AudioNoInterrupts();
-///  sample_rate_real = setI2SFreq(sample_rate_real);
+#ifdef __MK66FX1M0__
+// T3.6 code
+  sample_rate_real = setI2SFreq(sample_rate_real);
+#else
+// T4.1 code
   setI2SFreq(sample_rate_real);   /// returns void now
+#endif    
   if(sample_rate_real == 0) {
     Serial.printf("ERROR: failed to set sampling frequency\n");
     while(1);
@@ -663,7 +668,7 @@ void agc()
       mic_gain--;
       set_mic_gain(mic_gain);
       Serial.printf("Gain: %d\n", mic_gain);
-    } else if (wwvb_med < 100 && mic_gain < 58) {
+    } else if (wwvb_med < 100 && mic_gain < 63) {       // 58
       mic_gain++;
       set_mic_gain(mic_gain);
       Serial.printf("Gain: %d\n", mic_gain);
@@ -915,8 +920,8 @@ void detectBit(void)
   wwvb_threshold_last = wwvb_threshold;
 }
 
-
-#if 0
+#ifdef __MK66FX1M0__
+// T3.6 code
 int setI2SFreq(int freq)
 {
   typedef struct {
@@ -958,8 +963,9 @@ int setI2SFreq(int freq)
   }
   return 0;
 }
-#endif
 
+#else
+// T4.1 code
 void setI2SFreq(int freq) {
 
   // PLL between 27*24 = 648MHz und 54*24=1296MHz
@@ -982,6 +988,7 @@ void setI2SFreq(int freq) {
 
   //END//Added afterwards to make the SAI2 function at the desired frequency as well.
 }
+#endif
 
 void check_processor()
 {
