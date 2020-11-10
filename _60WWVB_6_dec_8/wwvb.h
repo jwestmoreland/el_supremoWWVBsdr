@@ -11,6 +11,8 @@
 // within a range of about 500Hz to 1000Hz.
 #define SIDETONE_FREQUENCY 775
 
+#define TEST_WWVB_DECODER
+
 // variation allowed in a pulse width before it is deemed to
 // be invalid (in milliseconds)
 #define PULSE_DT 100

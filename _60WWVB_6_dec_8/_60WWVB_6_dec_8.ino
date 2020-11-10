@@ -104,6 +104,8 @@ https://forum.pjrc.com/threads/40102
     https://github.com/DD4WH/Teensy-DCF77/wiki
 */
 
+#define TEST_WWVB_DECODER
+
 #define VERSION     " v0.6_dec_7"
 #include "AudioDecimateByN.h"
 #include "wwvb.h"
@@ -135,7 +137,7 @@ https://forum.pjrc.com/threads/40102
 #define USE_DISPLAY
 #define USE_FFT
 // #define FFT_DEBUG
-// #define USE_SIDETONE   // will disable for now --- aj6bc/jcw
+#define USE_SIDETONE   // will disable for now --- aj6bc/jcw
 
 #include <TimeLib.h>
 #include <Bounce.h>
@@ -247,8 +249,8 @@ const uint16_t FFT_points = 1024;
 //const uint16_t FFT_points = 256;
 
 // Mic gain from 0 to 63dB
-int8_t mic_gain = 60 ;//start detecting with this MIC_GAIN in dB
-// int8_t mic_gain = 38 ;//start detecting with this MIC_GAIN in dB
+// int8_t mic_gain = 60 ;//start detecting with this MIC_GAIN in dB
+int8_t mic_gain = 40 ;//start detecting with this MIC_GAIN in dB
 // originally 40
 const float bandpass_q = 70;
 // #1 = 59712
@@ -296,6 +298,8 @@ const float displayscale = 5;
 #define TFT_MOSI     11
 #define TFT_SCLK    13
 #define TFT_MISO    12
+
+#define T4
 
 ILI9341_t3 tft = ILI9341_t3(TFT_CS, TFT_DC, TFT_RST, TFT_MOSI, TFT_SCLK, TFT_MISO);
 
@@ -365,7 +369,7 @@ void setup(void)
   Serial.println(mag_limit,0);
   Serial.printf("\r\n");
 // #ifdef USE_SIDETONE  
-  pinMode(LED_PIN,OUTPUT);   /// not sure about this rigtht now... --- aj6bc/jcw
+  pinMode(LED_PIN,OUTPUT);   /// not sure about this rigtht now... --- aj6bc/jcw ok when not using display?
 //#endif
   setSyncProvider(getTeensy3Time);
 
@@ -385,7 +389,7 @@ void setup(void)
   sgtl5000_1.micGain (mic_gain);
   sgtl5000_1.adcHighPassFilterDisable(); // does not help too much!
   
-#ifdef __MK66FX1M0__
+// #ifdef __MK66FX1M0__
 // T3.6 code
   // I want output on the line out too
   sgtl5000_1.unmuteLineout();
@@ -393,9 +397,9 @@ void setup(void)
   // 31 is LOWEST output of 1.16V and 13 is HIGHEST output of 3.16V
   // but this doesn't make a difference
   sgtl5000_1.lineOutLevel(15);
-#else
+// #else
 // T4.1 code
-#endif
+//#endif
 
 #ifdef USE_DISPLAY
   // Init TFT display
@@ -445,7 +449,7 @@ void loop(void)
 {
   int16_t *sp = NULL;
 
-  if(Serial.available() > 0) {
+  if(Serial.available() > 0) {                                // what are we reading?  --- aj6bc/jcw
     instring[c_idx] = Serial.read();
     if(instring[c_idx] == '\n') {
       instring[c_idx] = 0;
@@ -926,15 +930,15 @@ void detectBit(void)
     // This turns the LED on because I want the LED to
     // display the inverted output of the detector which
     // is what the WWV detector board/antenna shows.
-#ifdef __MK66FX1M0__
+// #ifdef __MK66FX1M0__
 // T3.6 code    
     digitalWrite(LED_PIN,1);
-#endif    
+// #endif    
   } else {
-#ifdef __MK66FX1M0__
+// #ifdef __MK66FX1M0__
 // T3.6 code    
     digitalWrite(LED_PIN,0);
-#endif    
+// #endif    
     unsigned long t = millis() - secStart;
     if ((secStart > 0) && (t > 90)) {
       decode(t);
