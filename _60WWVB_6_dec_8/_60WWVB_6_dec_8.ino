@@ -134,6 +134,7 @@ https://forum.pjrc.com/threads/40102
 
 #define USE_DISPLAY
 #define USE_FFT
+// #define FFT_DEBUG
 // #define USE_SIDETONE   // will disable for now --- aj6bc/jcw
 
 #include <TimeLib.h>
@@ -247,6 +248,7 @@ const uint16_t FFT_points = 1024;
 
 // Mic gain from 0 to 63dB
 int8_t mic_gain = 60 ;//start detecting with this MIC_GAIN in dB
+// int8_t mic_gain = 38 ;//start detecting with this MIC_GAIN in dB
 // originally 40
 const float bandpass_q = 70;
 // #1 = 59712
@@ -255,7 +257,11 @@ const float WWVB_FREQ = 60000.0; //WWVB 60 kHz
 // start detecting at this frequency, so that
 // you can hear the carrier as an audible tone
 // whose frequency is specified as SIDETONE_FREQUENCY
+#ifdef USE_SIDETONE
 unsigned int freq_real = WWVB_FREQ - SIDETONE_FREQUENCY;
+#else
+unsigned int freq_real = WWVB_FREQ - 600.0;
+#endif
 
 const unsigned int sample_rate = SAMPLE_RATE_192K;
 unsigned int sample_rate_real = 192000;
@@ -357,9 +363,10 @@ void setup(void)
 #endif  
   Serial.print(", mag_limit = ");
   Serial.println(mag_limit,0);
-#ifdef USE_SIDETONE  
+  Serial.printf("\r\n");
+// #ifdef USE_SIDETONE  
   pinMode(LED_PIN,OUTPUT);   /// not sure about this rigtht now... --- aj6bc/jcw
-#endif
+//#endif
   setSyncProvider(getTeensy3Time);
 
   iq_init();
@@ -370,16 +377,25 @@ void setup(void)
   // Enable the audio shield. select input. and enable output
   sgtl5000_1.enable();
   sgtl5000_1.inputSelect(myInput);
+#ifdef USE_SIDETONE  
   sgtl5000_1.volume(0.95);
+#else  
+  sgtl5000_1.volume(0.9);
+#endif
   sgtl5000_1.micGain (mic_gain);
   sgtl5000_1.adcHighPassFilterDisable(); // does not help too much!
-
+  
+#ifdef __MK66FX1M0__
+// T3.6 code
   // I want output on the line out too
   sgtl5000_1.unmuteLineout();
   // According to info in libraries\Audio\control_sgtl5000.cpp
   // 31 is LOWEST output of 1.16V and 13 is HIGHEST output of 3.16V
   // but this doesn't make a difference
   sgtl5000_1.lineOutLevel(15);
+#else
+// T4.1 code
+#endif
 
 #ifdef USE_DISPLAY
   // Init TFT display
@@ -399,6 +415,7 @@ void setup(void)
   set_freq_LO (freq_real);
 
   display_settings();
+  delay(3000);  // so you can see settings
   //  decodeTelegram( 0x8b47c0501a821b80ULL );
 #ifdef USE_DISPLAY
   displayDate();
@@ -568,10 +585,17 @@ void set_sample_rate(int sr)
   set_freq_LO(freq_real);
 
 // biquad2 was 5000. Now 3800
+#ifdef USE_SIDETONE
   biquad2.setLowpass(0, 3800 * (AUDIO_SAMPLE_RATE_EXACT / sample_rate_real), 0.54);
   biquad2.setLowpass(1, 3800 * (AUDIO_SAMPLE_RATE_EXACT / sample_rate_real), 1.3);
   biquad2.setLowpass(2, 3800 * (AUDIO_SAMPLE_RATE_EXACT / sample_rate_real), 0.54);
   biquad2.setLowpass(3, 3800 * (AUDIO_SAMPLE_RATE_EXACT / sample_rate_real), 1.3);
+#else
+  biquad2.setLowpass(0, 1700, 0.54);
+  biquad2.setLowpass(1, 1700, 1.3);
+  biquad2.setLowpass(2, 1700, 0.54);
+  biquad2.setLowpass(3, 1700, 1.3);
+#endif
 
   biquad1.setBandpass(0, WWVB_FREQ * (AUDIO_SAMPLE_RATE_EXACT / sample_rate_real), bandpass_q);
   biquad1.setBandpass(1, WWVB_FREQ * (AUDIO_SAMPLE_RATE_EXACT / sample_rate_real), bandpass_q);
@@ -598,7 +622,11 @@ void set_sample_rate(int sr)
   //  display_settings();
   prepare_spectrum_display();
 #endif
-
+#if USE_DEBUG
+  {
+    Serial.print("WWVB_bin number: "); Serial.println(WWVB_bin);
+  }
+#endif
 } // END function set_sample_rate
 
 //#define FFT_DEBUG
@@ -812,7 +840,7 @@ void decode(unsigned long t)
   Serial.printf("%c",x_pulse);
   char_count++;
   if(char_count >= 64) {
-    Serial.println();
+    Serial.println("+");
     char_count = 0;
   }
   if(x_pulse == '?') {
@@ -898,9 +926,15 @@ void detectBit(void)
     // This turns the LED on because I want the LED to
     // display the inverted output of the detector which
     // is what the WWV detector board/antenna shows.
+#ifdef __MK66FX1M0__
+// T3.6 code    
     digitalWrite(LED_PIN,1);
+#endif    
   } else {
+#ifdef __MK66FX1M0__
+// T3.6 code    
     digitalWrite(LED_PIN,0);
+#endif    
     unsigned long t = millis() - secStart;
     if ((secStart > 0) && (t > 90)) {
       decode(t);
