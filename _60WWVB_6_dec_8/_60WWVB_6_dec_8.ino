@@ -104,6 +104,13 @@ https://forum.pjrc.com/threads/40102
     https://github.com/DD4WH/Teensy-DCF77/wiki
 */
 
+#ifdef __MK66FX1M0__
+// T3.6 code
+#else
+// T4.1 code
+#endif
+
+
 #define VERSION     " v0.6_dec_7"
 #include "AudioDecimateByN.h"
 #include "wwvb.h"
@@ -134,6 +141,7 @@ https://forum.pjrc.com/threads/40102
 
 #define USE_DISPLAY
 #define USE_FFT
+// #define USE_SIDETONE   // will disable for now --- aj6bc/jcw
 
 #include <TimeLib.h>
 #include <Bounce.h>
@@ -149,10 +157,14 @@ https://forum.pjrc.com/threads/40102
 // When grounded, this adds a 600Hz tone to the
 // audio output so that you can hear what the
 // WWVB (or DCF77) signal should sound like
+#ifdef USE_SIDETONE
 #define SIDETONE_PIN 29
+#endif
 
+#ifdef USE_SIDETONE
 Bounce sidetone = Bounce(SIDETONE_PIN, 5);
 float sidetone_volume = 0.008;
+#endif
 
 time_t getTeensy3Time()
 {
@@ -178,23 +190,29 @@ time_t getTeensy3Time()
 AudioInputI2S            i2s_in;         //xy=459,381
 AudioFilterBiquad        biquad1;        //xy=643,374
 AudioSynthWaveformSine   sine1;          //xy=663,471
+AudioEffectMultiply      mult1;          //xy=885,462
+AudioFilterBiquad        biquad2;        //xy=1087,462
 #ifdef USE_FFT
 AudioAnalyzeFFT1024      myFFT;          //xy=834,372
 #endif
-AudioEffectMultiply      mult1;          //xy=885,462
+#ifdef USE_SIDETONE
 AudioSynthWaveformSine   sine600;        //xy=1086,516
-AudioFilterBiquad        biquad2;        //xy=1087,462
+
 // 23kHz lopass at 192kHz in to x4 decimator
 AudioFilterBiquad        biquad3;
 // 3800Hz lopass at 48kHz in to x6 decimator
 AudioFilterBiquad        biquad4;
+#endif
 
 AudioDecimateByN         decimator6;      //xy=1281.88330078125,397.8833312988281
 AudioDecimateByN         decimator4;      //xy=1281.88330078125,397.8833312988281
 
+#ifdef USE_SIDETONE
 AudioMixer4              mixer_output;   //xy=1284,497
 AudioRecordQueue         queue1;         //xy=1437,398
 AudioOutputI2S           i2s_out;        //xy=1457,499
+#endif
+
 AudioConnection          patchCord1(i2s_in, 0, biquad1, 0);
 AudioConnection          patchCord2(biquad1, 0, mult1, 0);
 #ifdef USE_FFT
@@ -202,15 +220,20 @@ AudioConnection          patchCord3(biquad1, myFFT);
 #endif
 AudioConnection          patchCord4(sine1, 0, mult1, 1);
 AudioConnection          patchCord5a(mult1, biquad2);
+#ifdef USE_SIDETONE
 AudioConnection          patchCord5b(mult1, biquad3);
+
 AudioConnection          patchCord6(sine600, 0, mixer_output, 1);
 AudioConnection          patchCord7(biquad2, 0, mixer_output, 0);
+// #endif
 AudioConnection          patchCord8a(biquad3, 0, decimator4, 0);
 AudioConnection          patchCord8b(decimator4, 0, biquad4, 0);
 AudioConnection          patchCord8c(biquad4, 0, decimator6, 0);
 AudioConnection          patchCord9(decimator6, 0, queue1, 0);
+// #ifdef USE_SIDETONE
 AudioConnection          patchCord10(mixer_output, 0, i2s_out, 0);
 AudioConnection          patchCord11(mixer_output, 0, i2s_out, 1);
+#endif
 AudioControlSGTL5000     sgtl5000_1;     //xy=482,252
 // GUItool: end automatically generated code
 //const int myInput = AUDIO_INPUT_LINEIN;
@@ -320,19 +343,23 @@ void setup(void)
   Serial.print(__TIME__);
   Serial.print(" CST ");
   Serial.println(__DATE__);
-  
+#ifdef USE_SIDETONE  
   pinMode(SIDETONE_PIN, INPUT_PULLUP);
+#endif  
 //>>>
   Serial.print("Carrier = ");
   Serial.print(WWVB_FREQ,2);
   Serial.print(", Q = ");
   Serial.print(bandpass_q,2);
+#ifdef USE_SIDETONE  
   Serial.print(", sidetone = ");
   Serial.print(SIDETONE_FREQUENCY);
+#endif  
   Serial.print(", mag_limit = ");
   Serial.println(mag_limit,0);
-  pinMode(LED_PIN,OUTPUT);
-
+#ifdef USE_SIDETONE  
+  pinMode(LED_PIN,OUTPUT);   /// not sure about this rigtht now... --- aj6bc/jcw
+#endif
   setSyncProvider(getTeensy3Time);
 
   iq_init();
@@ -379,6 +406,7 @@ void setup(void)
   displayPrecisionMessage();
 #endif
 
+#ifdef USE_SIDETONE
 AudioNoInterrupts();
   mixer_output.gain(0, 1.0 - sidetone_volume);
   mixer_output.gain(1, sidetone_volume);
@@ -387,6 +415,7 @@ AudioNoInterrupts();
   decimator4.factor(4);
   queue1.begin();
 AudioInterrupts();
+#endif
 } // END SETUP
 
 
@@ -416,6 +445,7 @@ void loop(void)
       c_idx = 0;
     }
   }
+#ifdef USE_SIDETONE  
   sidetone.update();
   if(sidetone.fallingEdge()) {
     mixer_output.gain(1, sidetone_volume);
@@ -423,6 +453,7 @@ void loop(void)
   if(sidetone.risingEdge()) {
     mixer_output.gain(1, 0.0);
   }
+#endif  
 
 #ifdef USE_FFT
   if (myFFT.available()) {
@@ -434,6 +465,7 @@ void loop(void)
 #endif
   }
 #endif
+#ifdef USE_SIDETONE 
   if (queue1.available() >= 1) {
     // Get address of packet and process the samples
     sp = queue1.readBuffer();
@@ -452,6 +484,7 @@ static int q_count = 0;
     }
 #endif
   }
+#endif  
 }
 
 void set_mic_gain(int8_t gain)
@@ -539,7 +572,7 @@ void set_sample_rate(int sr)
   biquad1.setBandpass(1, WWVB_FREQ * (AUDIO_SAMPLE_RATE_EXACT / sample_rate_real), bandpass_q);
   biquad1.setBandpass(2, WWVB_FREQ * (AUDIO_SAMPLE_RATE_EXACT / sample_rate_real), bandpass_q);
   biquad1.setBandpass(3, WWVB_FREQ * (AUDIO_SAMPLE_RATE_EXACT / sample_rate_real), bandpass_q);
-
+#ifdef USE_SIDETONE
 // 23kHz lopass at 192kHz in to x4 decimator
   biquad3.setLowpass(0, 23000 * (AUDIO_SAMPLE_RATE_EXACT / sample_rate_real), 0.54);
   biquad3.setLowpass(1, 23000 * (AUDIO_SAMPLE_RATE_EXACT / sample_rate_real), 1.3);
@@ -551,7 +584,7 @@ void set_sample_rate(int sr)
   biquad4.setLowpass(1, 3800 * (AUDIO_SAMPLE_RATE_EXACT / 48000), 1.3);
   biquad4.setLowpass(2, 3800 * (AUDIO_SAMPLE_RATE_EXACT / 48000), 0.54);
   biquad4.setLowpass(3, 3800 * (AUDIO_SAMPLE_RATE_EXACT / 48000), 1.3);
-
+#endif
   AudioInterrupts();
   delay(20);
   wwvb_bin = round((WWVB_FREQ / (sample_rate_real / 2.0)) * (FFT_points / 2));
