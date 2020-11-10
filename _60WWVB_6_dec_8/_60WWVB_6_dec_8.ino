@@ -132,8 +132,8 @@ https://forum.pjrc.com/threads/40102
 
 #include "config.h"
 
-//#define USE_DISPLAY
-
+#define USE_DISPLAY
+#define USE_FFT
 
 #include <TimeLib.h>
 #include <Bounce.h>
@@ -145,7 +145,7 @@ https://forum.pjrc.com/threads/40102
 #include <ILI9341_t3.h>
 #include "font_Arial.h"
 #endif
-
+#include <utility/imxrt_hw.h>
 // When grounded, this adds a 600Hz tone to the
 // audio output so that you can hear what the
 // WWVB (or DCF77) signal should sound like
@@ -260,12 +260,12 @@ int bit;
 const float displayscale = 5;
 
 #ifdef USE_DISPLAY
-#define BACKLIGHT_PIN 0
-#define TFT_DC      20
-#define TFT_CS      21
-#define TFT_RST     32  // 255 = unused. connect to 3.3V
-#define TFT_MOSI     7
-#define TFT_SCLK    14
+#define BACKLIGHT_PIN 22
+#define TFT_DC      5
+#define TFT_CS      14
+#define TFT_RST     255  // 255 = unused. connect to 3.3V
+#define TFT_MOSI     11
+#define TFT_SCLK    13
 #define TFT_MISO    12
 
 ILI9341_t3 tft = ILI9341_t3(TFT_CS, TFT_DC, TFT_RST, TFT_MOSI, TFT_SCLK, TFT_MISO);
@@ -520,7 +520,8 @@ void set_sample_rate(int sr)
     break;
   }
   AudioNoInterrupts();
-  sample_rate_real = setI2SFreq(sample_rate_real);
+///  sample_rate_real = setI2SFreq(sample_rate_real);
+  setI2SFreq(sample_rate_real);   /// returns void now
   if(sample_rate_real == 0) {
     Serial.printf("ERROR: failed to set sampling frequency\n");
     while(1);
@@ -882,7 +883,7 @@ void detectBit(void)
 }
 
 
-
+#if 0
 int setI2SFreq(int freq)
 {
   typedef struct {
@@ -923,6 +924,30 @@ int setI2SFreq(int freq)
     }
   }
   return 0;
+}
+#endif
+
+void setI2SFreq(int freq) {
+
+  // PLL between 27*24 = 648MHz und 54*24=1296MHz
+  int n1 = 4; //SAI prescaler 4 => (n1*n2) = multiple of 4
+  int n2 = 1 + (24000000 * 27) / (freq * 256 * n1);
+  double C = ((double)freq * 256 * n1 * n2) / 24000000;
+  int c0 = C;
+  int c2 = 10000;
+  int c1 = C * c2 - (c0 * c2);
+  set_audioClock(c0, c1, c2, true);
+  CCM_CS1CDR = (CCM_CS1CDR & ~(CCM_CS1CDR_SAI1_CLK_PRED_MASK | CCM_CS1CDR_SAI1_CLK_PODF_MASK))
+               | CCM_CS1CDR_SAI1_CLK_PRED(n1 - 1) // &0x07
+               | CCM_CS1CDR_SAI1_CLK_PODF(n2 - 1); // &0x3f
+
+  //START//Added afterwards to make the SAI2 function at the desired frequency as well.
+
+  CCM_CS2CDR = (CCM_CS2CDR & ~(CCM_CS2CDR_SAI2_CLK_PRED_MASK | CCM_CS2CDR_SAI2_CLK_PODF_MASK))
+               | CCM_CS2CDR_SAI2_CLK_PRED(n1 - 1) // &0x07
+               | CCM_CS2CDR_SAI2_CLK_PODF(n2 - 1); // &0x3f)
+
+  //END//Added afterwards to make the SAI2 function at the desired frequency as well.
 }
 
 void check_processor()
