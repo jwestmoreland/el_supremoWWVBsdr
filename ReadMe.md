@@ -14,3 +14,29 @@ I'm going to 'stub' that with #define 'wrappers' for now - once I've looked
 up the pin differences for what's being used with the two processors - I'll 
 try to re-enable that - or just uncomment 
 // #define USING_SIDETONE
+
++=+=+=
+Added check of mic control register:
+// check value of mic control register:
+mic_ctl_regval = sgtl5000_1.read(CHIP_MIC_CTRL);
+Serial.printf("\r\nMic Control Register (ADDR 0x002A) = 0x%x \r\n", mic_ctl_regval);
+
+Note (Audio Lib):
+In control_sgtl5000.h:
+
+unsigned int read(unsigned int reg); // removed from protected:
+
+In control_sgtl5000.cpp:
+return write(CHIP_MIC_CTRL, 0x0000 | preamp_gain)                          // attempt to disable mic bias block --- aj6bc/jcw
+
+Example:
+
+In the sketch:
+
+// check value of mic control register:
+mic_ctl_regval = sgtl5000_1.read(CHIP_MIC_CTRL);
+Serial.printf("\r\nMic Control Register (ADDR 0x002A) = 0x%x \r\n", mic_ctl_regval);
+
+And in the serial terminal window:
+
+Mic Control Register (ADDR 0x002A) = 0x3  <- example output w/mic bias block disabled (register bits 9:8)
