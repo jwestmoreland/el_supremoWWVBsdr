@@ -103,7 +103,7 @@ https://forum.pjrc.com/threads/40102
 
     https://github.com/DD4WH/Teensy-DCF77/wiki
 */
-
+#define CHIP_MIC_CTRL      0x002A // microphone gain & internal microphone bias
 #define TEST_WWVB_DECODER
 
 #define VERSION     " v0.6_dec_7"
@@ -250,7 +250,7 @@ const uint16_t FFT_points = 1024;
 
 // Mic gain from 0 to 63dB
 // int8_t mic_gain = 60 ;//start detecting with this MIC_GAIN in dB
-int8_t mic_gain = 40 ;//start detecting with this MIC_GAIN in dB
+int8_t mic_gain = 38 ;//start detecting with this MIC_GAIN in dB
 // originally 40
 const float bandpass_q = 70;
 // #1 = 59712
@@ -336,9 +336,10 @@ const char* const Days[7] = { "Saturday", "Sunday", "Monday", "Tuesday", "Wednes
 
 
 //=========================================================================
-
+static unsigned int mic_ctl_regval = 0;
 void setup(void)
 {
+  
   Serial.begin(115200);
 
   uint32_t now = millis();
@@ -388,6 +389,11 @@ void setup(void)
 #endif
   sgtl5000_1.micGain (mic_gain);
   sgtl5000_1.adcHighPassFilterDisable(); // does not help too much!
+
+// check value of mic control register:
+  mic_ctl_regval = sgtl5000_1.read(CHIP_MIC_CTRL);
+  Serial.printf("\r\nMic Control Register (ADDR 0x002A) = 0x%x \r\n", mic_ctl_regval);
+  
   
 // #ifdef __MK66FX1M0__
 // T3.6 code
@@ -705,6 +711,9 @@ void agc()
       set_mic_gain(mic_gain);
       Serial.printf("Gain: %d\n", mic_gain);
     }
+// check value of mic control register:
+  mic_ctl_regval = sgtl5000_1.read(CHIP_MIC_CTRL);
+  Serial.printf("Mic Control Register (ADDR 0x002A) = 0x%x \r\n", mic_ctl_regval);    
   }
 //#endif
 }
